@@ -17,6 +17,52 @@ enum TestStatus {
   NOT_TESTED
 }
 
+enum UserRole {
+  ADMIN
+  TESTER
+  VIEWER
+}
+
+enum ReportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NotificationType {
+  TEST_ASSIGNED
+  TEST_UPDATED
+  REPORT_CREATED
+  REPORT_ASSIGNED
+  REPORT_UPDATED
+  COMMENT_ADDED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  password      String
+  role          UserRole  @default(TESTER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  reportedTests      TestReport[]   @relation("ReportedBy")
+  assignedTests      TestReport[]   @relation("AssignedTo")
+  notifications      Notification[] @relation("NotificationUser")
+  sentNotifications  Notification[] @relation("NotificationSender")
+
+  @@map("users")
+}
+
 model Module {
   id        String     @id @default(cuid())
   name      String
@@ -29,19 +75,63 @@ model Module {
 }
 
 model TestCase {
-  id               String     @id @default(cuid())
+  id               String       @id @default(cuid())
   moduleId         String
   name             String
-  status           TestStatus @default(NOT_TESTED)
-  remark           String?    @db.Text
-  issueDescription String?    @db.Text
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  status           TestStatus   @default(NOT_TESTED)
+  remark           String?      @db.Text
+  issueDescription String?      @db.Text
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
   
-  module           Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module           Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   sessions         TestSessionTest[]
+  testReports      TestReport[]
 
+  @@index([moduleId])
   @@map("test_cases")
+}
+
+model TestReport {
+  id               String       @id @default(cuid())
+  testCaseId       String
+  reporterId       String
+  assigneeId       String?
+  title            String
+  description      String       @db.Text
+  status           ReportStatus @default(OPEN)
+  priority         Priority     @default(MEDIUM)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  testCase  TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  reporter  User     @relation("ReportedBy", fields: [reporterId], references: [id])
+  assignee  User?    @relation("AssignedTo", fields: [assigneeId], references: [id])
+
+  @@index([testCaseId])
+  @@index([reporterId])
+  @@index([assigneeId])
+  @@index([status])
+  @@map("test_reports")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  senderId  String?
+  type      NotificationType
+  title     String
+  message   String           @db.Text
+  isRead    Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  user   User  @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  sender User? @relation("NotificationSender", fields: [senderId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }
 
 model TestSession {
