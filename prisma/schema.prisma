@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum TestStatus {
+  SUCCESS
+  FAILURE
+  NOT_TESTED
+}
+
+model Module {
+  id        String     @id @default(cuid())
+  name      String
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  tests     TestCase[]
+
+  @@map("modules")
+}
+
+model TestCase {
+  id               String     @id @default(cuid())
+  moduleId         String
+  name             String
+  status           TestStatus @default(NOT_TESTED)
+  remark           String?    @db.Text
+  issueDescription String?    @db.Text
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  
+  module           Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  sessions         TestSessionTest[]
+
+  @@map("test_cases")
+}
+
+model TestSession {
+  id        String            @id @default(cuid())
+  name      String
+  date      DateTime          @default(now())
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  tests     TestSessionTest[]
+
+  @@map("test_sessions")
+}
+
+model TestSessionTest {
+  id            String      @id @default(cuid())
+  sessionId     String
+  testCaseId    String
+  status        TestStatus
+  remark        String?     @db.Text
+  issueDescription String?  @db.Text
+  createdAt     DateTime    @default(now())
+  
+  session       TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  testCase      TestCase    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, testCaseId])
+  @@map("test_session_tests")
+}
